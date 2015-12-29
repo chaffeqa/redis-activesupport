@@ -57,7 +57,7 @@ module ActiveSupport
         options = merged_options(options)
         instrument(:write, name, options) do |payload|
           entry = options[:raw].present? ? value : Entry.new(value, options)
-          write_entry(namespaced_key(name, options), entry, options)
+          write_entry(key_from(name, options), entry, options)
         end
       end
 
@@ -93,7 +93,7 @@ module ActiveSupport
       #   cache.read_multi "rabbit", "white-rabbit", :raw => true
       def read_multi(*names)
         options = names.extract_options!
-        keys = names.map{|name| namespaced_key(name, options)}
+        keys = names.map{|name| key_from(name, options)}
         values = with { |c| c.mget(*keys) }
         values.map! { |v| v.is_a?(ActiveSupport::Cache::Entry) ? v.value : v }
 
@@ -113,7 +113,7 @@ module ActiveSupport
         with do |c|
           c.multi do
             fetched = names.inject({}) do |memo, (name, _)|
-              key = namespaced_key(name, options)
+              key = key_from(name, options)
               memo[key] = results.fetch(key) do
                 value = yield name
                 write(name, value, options)
@@ -267,7 +267,15 @@ module ActiveSupport
             pattern
           end
         end
+        
+        # Rails 5 depricated `namespaced_key` in preference for `normalize_key`
+        def key_from(*args)
+          if self.respond_to?(:normalize_key)
+            normalize_key(*args)
+          else
+            namespaced_key(*args)
+          end
+        end
     end
   end
 end
-
